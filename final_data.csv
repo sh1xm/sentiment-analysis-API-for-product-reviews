@@ -1,0 +1,4 @@
+review,sentiment,cleaned_review,number_sequence
+I absolutely LOVED this product! It is the best thing ever.,1,absolutely loved product best thing ever,"[4, 18, 3, 1, 2, 8]"
+Terrible experience. The item was broken and the shipping was so slow.,0,terrible experience item broken shipping slow,"[13, 10, 14, 5, 15, 16]"
+,,,

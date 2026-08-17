@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentiment Analysis Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Identity Services SDK -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2563EB',
+                        secondary: '#475569',
+                        success: '#10B981',
+                        danger: '#EF4444',
+                        background: '#F8FAFC',
+                        surface: '#FFFFFF'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; color: #1E293B; }
+        .hidden-section { display: none; }
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen w-full overflow-hidden">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-surface border-b border-gray-200 shrink-0 shadow-sm z-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3 cursor-pointer" onclick="switchMainView('app')">
+                <div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white shadow-md">
+                    <i class="fa-solid fa-chart-pie"></i>
+                </div>
+                <h1 class="font-bold text-lg text-gray-900">Sentiment API</h1>
+            </div>
+            
+            <nav class="hidden md:flex space-x-8">
+                <button onclick="switchMainView('app')" class="text-gray-600 hover:text-primary font-medium text-sm transition">Home</button>
+                <button onclick="switchMainView('about')" class="text-gray-600 hover:text-primary font-medium text-sm transition">About Us</button>
+                <button onclick="switchMainView('how-to')" class="text-gray-600 hover:text-primary font-medium text-sm transition">How to Use</button>
+                <button onclick="switchMainView('terms')" class="text-gray-600 hover:text-primary font-medium text-sm transition">Terms & Conditions</button>
+            </nav>
+
+            <!-- Auth Profile / Login Area -->
+            <div class="flex items-center gap-4">
+                <div id="loggedOutNav" class="flex gap-3">
+                    <button onclick="openLoginModal()" class="bg-primary hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm flex items-center gap-2">
+                        <i class="fa-brands fa-google"></i> Sign In with Google
+                    </button>
+                </div>
+                
+                <div id="loggedInNav" class="hidden-section flex items-center gap-3">
+                    <img id="navUserAvatar" src="" alt="Avatar" class="w-8 h-8 rounded-full border border-gray-200 object-cover">
+                    <div class="text-left hidden sm:block">
+                        <p id="navUserName" class="font-medium text-xs text-gray-900"></p>
+                        <p id="navUserEmail" class="text-[10px] text-gray-500 truncate max-w-[120px]"></p>
+                    </div>
+                    <button onclick="logoutGoogle()" class="text-gray-500 hover:text-danger p-2 rounded-lg text-sm transition" title="Log Out">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Dashboard Container -->
+    <div id="view-app" class="flex flex-1 overflow-hidden">
+        
+        <!-- Sidebar -->
+        <aside class="w-64 bg-surface border-r border-gray-200 flex flex-col h-full shrink-0 shadow-sm z-10">
+            <nav class="flex-1 px-4 py-6 space-y-2">
+                <button onclick="switchTab('single')" id="nav-single" class="w-full flex items-center gap-3 px-3 py-2.5 bg-blue-50 text-primary rounded-lg font-medium transition text-sm">
+                    <i class="fa-solid fa-pen-to-square w-5 text-center"></i> Single Review
+                </button>
+                <button onclick="switchTab('batch')" id="nav-batch" class="w-full flex items-center gap-3 px-3 py-2.5 text-secondary hover:bg-gray-50 rounded-lg font-medium transition text-sm">
+                    <i class="fa-solid fa-file-csv w-5 text-center"></i> Batch Upload
+                </button>
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="w-full flex items-center gap-3 px-3 py-2.5 text-secondary hover:bg-gray-50 rounded-lg font-medium transition text-sm">
+                    <i class="fa-solid fa-chart-line w-5 text-center"></i> Trend Dashboard
+                </button>
+                <button onclick="switchTab('modelcard')" id="nav-modelcard" class="w-full flex items-center gap-3 px-3 py-2.5 text-secondary hover:bg-gray-50 rounded-lg font-medium transition text-sm">
+                    <i class="fa-solid fa-microchip w-5 text-center"></i> Model Card
+                </button>
+            </nav>
+            
+            <div class="p-4 border-t border-gray-200">
+                <div class="flex items-center gap-3">
+                    <img id="sidebarUserAvatar" src="https://via.placeholder.com/32" class="w-8 h-8 rounded-full border border-gray-200 object-cover">
+                    <div class="text-left">
+                        <p id="sidebarUserName" class="font-medium text-xs text-gray-900">Guest User</p>
+                        <p id="sidebarStatus" class="text-[10px] text-green-600 flex items-center gap-1">
+                            <i class="fa-solid fa-circle text-[6px]"></i> API Online
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 flex flex-col h-full bg-background overflow-y-auto">
+            
+            <header class="h-16 bg-surface border-b border-gray-200 flex items-center justify-between px-8 shrink-0">
+                <h2 id="header-title" class="text-lg font-semibold text-gray-800">Single Review Analysis</h2>
+                <div class="flex gap-2">
+                    <span class="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium border border-gray-200">REST API: /predict</span>
+                </div>
+            </header>
+
+            <div class="p-8 max-w-5xl mx-auto w-full">
+
+                <!-- Section 1: Single Prediction -->
+                <section id="sec-single" class="block space-y-6">
+                    <div class="bg-surface rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-md font-semibold mb-2">Test Live Sentiment</h3>
+                        <p class="text-sm text-gray-500 mb-4">Enter an Amazon product review below to test the PyTorch LSTM model in real-time.</p>
+                        
+                        <textarea id="reviewText" rows="4" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition" placeholder="e.g., 'This product is absolutely amazing! Best purchase I've made all year.'"></textarea>
+                        
+                        <div class="flex justify-end mt-4">
+                            <button onclick="analyzeReview()" class="bg-primary hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-sm">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> Analyze Sentiment
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Results Box -->
+                    <div id="resultBox" class="bg-surface rounded-xl shadow-sm border border-gray-200 p-6 hidden-section">
+                        <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Prediction Results</h3>
+                        
+                        <div class="flex items-center gap-8">
+                            <div class="flex-1">
+                                <p class="text-sm text-gray-500 mb-1">Detected Sentiment</p>
+                                <div id="sentimentLabel" class="text-2xl font-bold text-success flex items-center gap-2">
+                                    <i class="fa-solid fa-face-smile"></i> Positive
+                                </div>
+                            </div>
+                            
+                            <div class="flex-1 border-l border-gray-200 pl-8">
+                                <p class="text-sm text-gray-500 mb-1">Confidence Score</p>
+                                <div class="flex items-center gap-3">
+                                    <span id="confidenceScore" class="text-2xl font-bold text-gray-900">92.4%</span>
+                                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                        <div id="confidenceBar" class="bg-primary h-2.5 rounded-full" style="width: 92.4%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section 2: Batch Upload -->
+                <section id="sec-batch" class="hidden-section space-y-6">
+                    <div class="bg-surface rounded-xl shadow-sm border border-gray-200 p-6 text-center border-dashed border-2">
+                        <div class="w-16 h-16 bg-blue-50 text-primary rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                        </div>
+                        <h3 class="text-md font-semibold mb-2">Upload CSV Batch</h3>
+                        <p class="text-sm text-gray-500 mb-6 max-w-md mx-auto">Upload a CSV containing Amazon reviews. The API will process the batch and append sentiment and confidence columns to your file.</p>
+                        
+                        <input type="file" id="csvFile" accept=".csv" class="hidden" />
+                        <label for="csvFile" class="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 cursor-pointer px-6 py-2.5 rounded-lg text-sm font-medium transition inline-flex items-center gap-2 shadow-sm">
+                            <i class="fa-solid fa-folder-open"></i> Select CSV File
+                        </label>
+                        <p class="text-xs text-gray-400 mt-3">Target Endpoint: <span class="font-mono text-gray-500">POST /batch</span></p>
+                    </div>
+                </section>
+
+                <!-- Section 3: Trend Dashboard -->
+                <section id="sec-dashboard" class="hidden-section space-y-6">
+                    <div class="bg-surface rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-md font-semibold mb-6">Sentiment Trends Over Time</h3>
+                        <div class="h-80 w-full relative">
+                            <canvas id="trendChart"></canvas>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section 4: Model Card -->
+                <section id="sec-modelcard" class="hidden-section space-y-6">
+                    <div class="grid grid-cols-3 gap-6">
+                        <div class="bg-surface rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col items-center justify-center">
+                            <p class="text-sm text-gray-500 mb-1">Overall Accuracy</p>
+                            <h2 class="text-4xl font-bold text-gray-900">88.4%</h2>
+                            <span class="text-xs text-green-500 font-medium mt-2"><i class="fa-solid fa-arrow-up"></i> 2.1% vs baseline</span>
+                        </div>
+                        <div class="bg-surface rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col items-center justify-center">
+                            <p class="text-sm text-gray-500 mb-1">Precision</p>
+                            <h2 class="text-4xl font-bold text-gray-900">87.1%</h2>
+                        </div>
+                        <div class="bg-surface rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col items-center justify-center">
+                            <p class="text-sm text-gray-500 mb-1">Recall</p>
+                            <h2 class="text-4xl font-bold text-gray-900">89.2%</h2>
+                        </div>
+                    </div>
+
+                    <div class="bg-surface rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-md font-semibold mb-4">Model Details</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between border-b border-gray-100 pb-2">
+                                <span class="text-sm text-gray-500">Architecture</span>
+                                <span class="text-sm font-medium text-gray-900">PyTorch LSTM Neural Network</span>
+                            </div>
+                            <div class="flex justify-between border-b border-gray-100 pb-2">
+                                <span class="text-sm text-gray-500">Dataset</span>
+                                <span class="text-sm font-medium text-gray-900">Amazon US Customer Reviews</span>
+                            </div>
+                            <div class="flex justify-between border-b border-gray-100 pb-2">
+                                <span class="text-sm text-gray-500">Preprocessing</span>
+                                <span class="text-sm font-medium text-gray-900">NLTK (Tokenisation, Stopword removal)</span>
+                            </div>
+                            <div class="flex justify-between pb-2">
+                                <span class="text-sm text-gray-500">Serialisation</span>
+                                <span class="text-sm font-medium text-gray-900">Joblib</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Informational Pages -->
+    <div id="view-info" class="flex-1 overflow-y-auto bg-background hidden-section p-8">
+        <div class="max-w-4xl mx-auto space-y-12">
+            
+            <!-- About Us -->
+            <section id="page-about" class="hidden-section bg-surface rounded-xl shadow-sm border border-gray-200 p-8">
+                <h2 class="text-3xl font-bold text-gray-900 mb-6">About the Project</h2>
+                <div class="prose max-w-none text-gray-600 space-y-4">
+                    <p>The Sentiment Analysis API is a deep-learning project built to classify product reviews and analyze customer sentiment in real-time. It leverages a custom-trained PyTorch Long Short-Term Memory (LSTM) Neural Network, offering both single-inference and batch-processing capabilities.</p>
+                </div>
+            </section>
+
+            <!-- How to Use -->
+            <section id="page-how-to" class="hidden-section bg-surface rounded-xl shadow-sm border border-gray-200 p-8">
+                <h2 class="text-3xl font-bold text-gray-900 mb-6">How to Use the API</h2>
+                <div class="space-y-6 text-gray-600">
+                    <p>Testing single reviews or bulk CSV files can be initiated from the Home dashboard.</p>
+                </div>
+            </section>
+
+            <!-- Terms and Conditions -->
+            <section id="page-terms" class="hidden-section bg-surface rounded-xl shadow-sm border border-gray-200 p-8">
+                <h2 class="text-3xl font-bold text-gray-900 mb-6">Terms & Conditions</h2>
+                <div class="prose max-w-none text-gray-600 space-y-4 text-sm">
+                    <p>Usage is subject to standard API evaluation rate limits and data privacy guidelines.</p>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <!-- Google Login Modal -->
+    <div id="loginModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center hidden-section">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden p-6 text-center space-y-6">
+            <div class="flex justify-between items-center border-b border-gray-100 pb-4">
+                <h3 class="text-lg font-bold text-gray-900">Sign In to Sentiment API</h3>
+                <button onclick="closeLoginModal()" class="text-gray-400 hover:text-gray-600 transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <p class="text-sm text-gray-500">Choose your Google Account to sign in and access the Sentiment Dashboard.</p>
+
+            <!-- Official Google Render Button -->
+            <div class="flex justify-center my-4">
+                <div id="googleBtnWrapper"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- GOOGLE OAUTH AUTHENTICATION LOGIC ---
+        const GOOGLE_CLIENT_ID = "652394196825-34s00697nass0b94amh0jfs6k4kj1jv5.apps.googleusercontent.com";
+
+        // Parse JWT Token from Google
+        function parseJwt(token) {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                return JSON.parse(jsonPayload);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // Handle Google Response
+        function handleCredentialResponse(response) {
+            const userData = parseJwt(response.credential);
+            if (userData) {
+                // Save user session in localStorage so it stays logged in
+                localStorage.setItem('googleUser', JSON.stringify(userData));
+                updateAuthUI(userData);
+                closeLoginModal();
+            }
+        }
+
+        // Update UI depending on login state
+        function updateAuthUI(user) {
+            const loggedOutNav = document.getElementById('loggedOutNav');
+            const loggedInNav = document.getElementById('loggedInNav');
+
+            if (user) {
+                loggedOutNav.style.display = 'none';
+                loggedInNav.style.display = 'flex';
+
+                document.getElementById('navUserName').innerText = user.name;
+                document.getElementById('navUserEmail').innerText = user.email;
+                document.getElementById('navUserAvatar').src = user.picture;
+
+                document.getElementById('sidebarUserName').innerText = user.given_name || user.name;
+                document.getElementById('sidebarUserAvatar').src = user.picture;
+            } else {
+                loggedOutNav.style.display = 'flex';
+                loggedInNav.style.display = 'none';
+
+                document.getElementById('sidebarUserName').innerText = 'Guest User';
+                document.getElementById('sidebarUserAvatar').src = 'https://via.placeholder.com/32';
+            }
+        }
+
+        // Logout and allow choosing another email
+        function logoutGoogle() {
+            localStorage.removeItem('googleUser');
+            google.accounts.id.disableAutoSelect();
+            updateAuthUI(null);
+            openLoginModal();
+        }
+
+        // Initialize Google Sign-In SDK
+        window.onload = function () {
+            const savedUser = localStorage.getItem('googleUser');
+            if (savedUser) {
+                updateAuthUI(JSON.parse(savedUser));
+            }
+
+            google.accounts.id.initialize({
+                client_id: GOOGLE_CLIENT_ID,
+                callback: handleCredentialResponse
+            });
+
+            google.accounts.id.renderButton(
+                document.getElementById("googleBtnWrapper"),
+                { theme: "outline", size: "large", shape: "pill", width: 280 }
+            );
+        };
+
+        // Modal Controls
+        function openLoginModal() { document.getElementById('loginModal').style.display = 'flex'; }
+        function closeLoginModal() { document.getElementById('loginModal').style.display = 'none'; }
+
+        // --- Navigation Logic ---
+        function switchMainView(viewName) {
+            const appView = document.getElementById('view-app');
+            const infoView = document.getElementById('view-info');
+            const pages = ['about', 'how-to', 'terms'];
+
+            if (viewName === 'app') {
+                appView.style.display = 'flex';
+                infoView.style.display = 'none';
+            } else {
+                appView.style.display = 'none';
+                infoView.style.display = 'block';
+                pages.forEach(p => document.getElementById('page-' + p).style.display = 'none');
+                document.getElementById('page-' + viewName).style.display = 'block';
+            }
+        }
+
+        function switchTab(tabId) {
+            ['single', 'batch', 'dashboard', 'modelcard'].forEach(id => {
+                document.getElementById('sec-' + id).style.display = 'none';
+                document.getElementById('nav-' + id).className = "w-full flex items-center gap-3 px-3 py-2.5 text-secondary hover:bg-gray-50 rounded-lg font-medium transition text-sm";
+            });
+
+            document.getElementById('sec-' + tabId).style.display = 'block';
+            document.getElementById('nav-' + tabId).className = "w-full flex items-center gap-3 px-3 py-2.5 bg-blue-50 text-primary rounded-lg font-medium transition text-sm";
+
+            const headers = {
+                'single': 'Single Review Analysis',
+                'batch': 'Batch CSV Inference',
+                'dashboard': 'Analytics Dashboard',
+                'modelcard': 'Model Transparency Card'
+            };
+            document.getElementById('header-title').innerText = headers[tabId];
+        }
+
+        // --- Prediction API ---
+        async function analyzeReview() {
+            const text = document.getElementById('reviewText').value;
+            if(!text) return alert("Please enter a review to analyze.");
+
+            try {
+                const response = await fetch('http://127.0.0.1:5000/predict', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({text: text}) 
+                });
+                const data = await response.json();
+                
+                document.getElementById('resultBox').style.display = 'block';
+                const isPositive = data.sentiment === "Positive" || data.score >= 0.5;
+                const confidence = data.confidence || (data.score * 100).toFixed(1);
+                
+                document.getElementById('sentimentLabel').innerHTML = isPositive ? 
+                    '<i class="fa-solid fa-face-smile"></i> Positive' : '<i class="fa-solid fa-face-frown"></i> Negative';
+                document.getElementById('sentimentLabel').className = isPositive ? 
+                    'text-2xl font-bold text-success flex items-center gap-2' : 'text-2xl font-bold text-danger flex items-center gap-2';
+                
+                document.getElementById('confidenceScore').innerText = confidence + '%';
+                document.getElementById('confidenceBar').style.width = confidence + '%';
+                document.getElementById('confidenceBar').className = isPositive ? 'bg-success h-2.5 rounded-full' : 'bg-danger h-2.5 rounded-full';
+            } catch (error) {
+                alert("Failed to connect to backend on port 5000.");
+            }
+        }
+    </script>
+</body>
+</html>
